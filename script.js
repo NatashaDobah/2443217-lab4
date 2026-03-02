@@ -10,32 +10,93 @@ const ALPHA_URL = 'https://restcountries.com/v3.1/alpha/';
 
 loadingSpinner.classList.add('hidden');
 errorMessage.classList.add('hidden');
+countryInfo.classList.add('hidden');
 
-searchBtn.addEventListener('click', () => {
-const country = countryInput.value.trim();
-if (country) {
-searchCountry(country);
-}
-});
-
-countryInput.addEventListener('keypress', (e) => {
-if (e.key === 'Enter') {
-const country = countryInput.value.trim();
-if (country) {
-searchCountry(country);
-}
-}
-});
-
-async function searchCountry(countryName) {
-loadingSpinner.classList.remove('hidden');
-
-countryInfo.innerHTML = '';
+function showError(text) {
+errorMessage.textContent = text;
+errorMessage.classList.remove('hidden');
+countryInfo.classList.add('hidden');
 borderingCountries.innerHTML = '';
+}
+
+function hideError() {
 errorMessage.classList.add('hidden');
+}
+
+function showLoading() {
+loadingSpinner.classList.remove('hidden');
+hideError();
+}
+
+function hideLoading() {
+loadingSpinner.classList.add('hidden');
+}
+
+function clearResults() {
+countryInfo.innerHTML = '';
+countryInfo.classList.add('hidden');
+borderingCountries.innerHTML = '';
+}
+
+function displayCountry(country) {
+const name = country.name.common;
+const capital = country.capital ? country.capital[0] : 'No capital';
+const population = country.population ? country.population.toLocaleString() : 'Unknown';
+const region = country.region;
+const flag = country.flags.svg;
+
+countryInfo.innerHTML = `
+<h2>${name}</h2>
+<img src="${flag}" alt="${name} flag" class="country-flag">
+<div class="country-details">
+<p><strong>Capital:</strong> ${capital}</p>
+<p><strong>Population:</strong> ${population}</p>
+<p><strong>Region:</strong> ${region}</p>
+</div>
+`;
+countryInfo.classList.remove('hidden');
+}
+
+async function displayBorders(borders) {
+if (!borders || borders.length === 0) {
+borderingCountries.innerHTML = '<p>No bordering countries</p>';
+return;
+}
+
+borderingCountries.innerHTML = '';
+
+for (let code of borders) {
+try {
+const response = await fetch(`${ALPHA_URL}${code}`);
+const data = await response.json();
+const border = data[0];
+
+const card = document.createElement('div');
+card.className = 'border-country-card';
+card.innerHTML = `
+<img src="${border.flags.svg}" alt="${border.name.common} flag" class="border-flag">
+<p>${border.name.common}</p>
+`;
+borderingCountries.appendChild(card);
+} catch (error) {
+console.log('Error loading border:', code);
+}
+}
+}
+
+async function searchCountry() {
+const countryName = countryInput.value.trim();
+
+if (!countryName) {
+showError('Please enter a country name');
+return;
+}
+
+showLoading();
+clearResults();
 
 try {
-const response = await fetch(`${API_URL}${encodeURIComponent(countryName)}`);
+const response = await fetch(`${API_URL}${countryName}`);
 
 if (!response.ok) {
 throw new Error('Country not found');
@@ -44,41 +105,28 @@ throw new Error('Country not found');
 const data = await response.json();
 const country = data[0];
 
-countryInfo.innerHTML = `
-<h2>${country.name.common}</h2>
-<img src="${country.flags.svg}" alt="${country.name.common} flag" class="country-flag">
-<div class="country-details">
-<p><strong>Capital:</strong> ${country.capital ? country.capital[0] : 'N/A'}</p>
-<p><strong>Population:</strong> ${country.population.toLocaleString()}</p>
-<p><strong>Region:</strong> ${country.region}</p>
-</div>
-`;
-
-if (country.borders && country.borders.length > 0) {
-const borderPromises = country.borders.map(code =>
-fetch(`${ALPHA_URL}${code}`).then(res => res.json())
-);
-
-const borderCountries = await Promise.all(borderPromises);
-
-borderCountries.forEach(borderData => {
-const border = borderData[0];
-const borderDiv = document.createElement('div');
-borderDiv.className = 'border-country-card';
-borderDiv.innerHTML = `
-<img src="${border.flags.svg}" alt="${border.name.common} flag" class="border-flag">
-<p>${border.name.common}</p>
-`;
-borderingCountries.appendChild(borderDiv);
-});
-} else {
-borderingCountries.innerHTML = '<p>No bordering countries</p>';
-}
+displayCountry(country);
+displayBorders(country.borders);
 
 } catch (error) {
-errorMessage.textContent = `Error: ${error.message}. Please try another country.`;
-errorMessage.classList.remove('hidden');
+showError(`Country "${countryName}" not found. Please check spelling.`);
 } finally {
-loadingSpinner.classList.add('hidden');
+hideLoading();
 }
 }
+
+function handleKeyPress(event) {
+if (event.key === 'Enter') {
+searchCountry();
+}
+}
+
+function handleInput() {
+if (errorMessage.classList.contains('hidden') === false) {
+hideError();
+}
+}
+
+searchBtn.addEventListener('click', searchCountry);
+countryInput.addEventListener('keypress', handleKeyPress);
+countryInput.addEventListener('input', handleInput);
