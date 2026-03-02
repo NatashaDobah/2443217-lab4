@@ -96,7 +96,7 @@ showLoading();
 clearResults();
 
 try {
-const response = await fetch(`${API_URL}${countryName}`);
+const response = await fetch(`https://restcountries.com/v3.1/name/${countryName}?fullText=True`);
 
 if (!response.ok) {
 throw new Error('Country not found');
